@@ -1,0 +1,66 @@
+# Global Values
+global:
+  environment: production
+
+# Application Configuration
+app:
+  name: phonebook
+  replicaCount: 2
+  image:
+    repository: "600627353694.dkr.ecr.ap-south-1.amazonaws.com/leon/phonebook-app"
+    tag: "latest" # This will be overridden in GitOps values
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  
+  env:
+    - name: MONGO_URI
+      valueFrom:
+        secretKeyRef:
+          name: mongodb-credentials
+          key: uri
+
+# MongoDB Configuration
+mongodb:
+  architecture: replicaset   
+  replicaCount: 2
+  auth:
+    enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClassName: gp2-csi
+
+
+# Ingress Configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "8m"
+  hosts:
+    - host: ""
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# Service Configuration
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 5000
+
+# Prometheus metrics
+metrics:
+  enabled: true
+  serviceMonitor:
+    enabled: true

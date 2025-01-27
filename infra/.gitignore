@@ -1,0 +1,17 @@
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+
+# Exclude bootstrap state
+!bootstrap/terraform.tfstate
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

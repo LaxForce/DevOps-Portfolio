@@ -1,0 +1,27 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: phonebook
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/LaxForce/gitops-config.git
+    targetRevision: HEAD
+    path: charts
+    helm:
+      valueFiles:
+        - values.yaml
+        - ../applications/apps/phonebook/values-prod.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: phonebook
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true # added for now lets see

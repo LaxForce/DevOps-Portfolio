@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kibana
+spec:
+  destination:
+    namespace: argocd
+  source:
+    repoURL: 'https://helm.elastic.co'
+    targetRevision: 7.17.3
+    chart: kibana
+    helm:
+      values: |
+        service:
+          type: ClusterIP
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "256Mi"
+  destination:
+    namespace: logging
+    server: 'https://kubernetes.default.svc'
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

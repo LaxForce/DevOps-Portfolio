@@ -1,0 +1,110 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit
+spec:
+  destination:
+    namespace: logging
+    server: 'https://kubernetes.default.svc'
+  source:
+    repoURL: 'https://fluent.github.io/helm-charts'
+    targetRevision: 0.20.5
+    chart: fluent-bit
+    helm:
+      values: |
+        service:
+          log_level: debug
+
+        config:
+          parsers: |
+            [PARSER]
+                Name nginx
+                Format regex
+                Regex ^(?<remote>[^ ]*) (?<host>[^ ]*) (?<user>[^ ]*) \[(?<time>[^\]]*)\] "(?<method>\S+)(?: +(?<path>[^\"]*?)(?: +\S*)?)?" (?<code>[^ ]*) (?<size>[^ ]*)(?: "(?<referer>[^\"]*)" "(?<agent>[^\"]*)")?
+                Time_Key time
+                Time_Format %d/%b/%Y:%H:%M:%S %z
+
+            [PARSER]
+                Name werkzeug
+                Format regex
+                Regex (?<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2},\d{3}) - (?<module>\w+) - (?<level>\w+) - (?<remote_addr>[^ ]*) - - \[(?:[^\]]*)\] "(?<method>\S+) (?<path>[^ ]*) (?<protocol>[^\"]*)" (?<status_code>\d+)
+                Time_Key timestamp
+                Time_Format %Y-%m-%d %H:%M:%S,%L
+                Types status_code:integer
+
+          filters: |
+            [FILTER]
+                Name kubernetes
+                Match kube.*
+                Merge_Log On
+                Keep_Log Off
+                K8S-Logging.Parser On
+                K8S-Logging.Exclude On
+
+
+            [FILTER]
+                Name parser
+                Match kube.var.log.containers.*nginx*
+                Key_Name log
+                Parser nginx
+                Reserve_Data On
+
+            [FILTER]
+                Name modify
+                Match kube.var.log.containers.*nginx*
+                Add source nginx
+
+            [FILTER]
+                Name modify
+                Match kube.var.log.containers.*phonebook*
+                Add source app
+
+          outputs: |
+            [OUTPUT]
+                Name es
+                Match kube.var.log.containers.*nginx*
+                Host elasticsearch-master.logging.svc.cluster.local
+                Port 9200
+                Index nginx-con-logs-%Y.%m.%d
+                Type _doc
+                Suppress_Type_Name On
+                Retry_Limit 20
+                Replace_Dots On
+                net.keepalive Off
+                Logstash_Format Off
+
+            [OUTPUT]
+                Name es
+                Match kube.var.log.containers.*phonebook*
+                Host elasticsearch-master.logging.svc.cluster.local
+                Port 9200
+                Index phonebook-app-logs-%Y.%m.%d
+                Type _doc
+                Suppress_Type_Name On
+                Retry_Limit 20
+                Replace_Dots On
+                net.keepalive Off
+                Logstash_Format Off
+
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+
+
+            # [PARSER]
+            #     Name app_json
+            #     Format json
+            #     Time_Key timestamp
+            #     Time_Format %Y-%m-%dT%H:%M:%S.%L
+            #     Time_Keep On
+
+
+                #         [FILTER]
+                # Name parser
+                # Match kube.var.log.containers.*phonebook*
+                # Key_Name log
+                # Parser app_json
+                # Reserve_Data On

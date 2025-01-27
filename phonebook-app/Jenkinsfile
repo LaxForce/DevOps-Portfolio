@@ -1,0 +1,161 @@
+pipeline {
+    agent any
+
+    environment {
+        AWS_ACCOUNT_ID = credentials('AWS_ACCOUNT_ID')
+        AWS_REGION = 'ap-south-1'
+        ECR_REPO = 'leon/phonebook-app'
+        IMAGE_NAME = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO}"
+    }
+
+    stages {
+        stage('Clone/Pull') {
+            steps {
+                // withCredentials([usernamePassword(
+                //     credentialsId: 'git-credentials',
+                //     usernameVariable: 'GIT_USERNAME',
+                //     passwordVariable: 'GIT_PASSWORD'
+                // )]) 
+                // {
+                //     sh """
+                //         git config user.email "jenkins@example.com"
+                //         git config user.name "Jenkins"
+                //         git remote set-url origin https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/LaxForce/phonebook-app.git
+                //     """
+                // }
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                sh "docker build -t ${IMAGE_NAME}:temp ."
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                configFileProvider([configFile(fileId: 'phonebook-env', targetLocation: '.env')]) {
+                    sh 'docker compose run --rm unit-test-runner'
+                }
+            }
+        }
+
+        stage('E2E Tests') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'feature/*'
+                }
+            }
+            steps {
+                script {
+                    try {
+                        configFileProvider([configFile(fileId: 'phonebook-env', targetLocation: '.env')]) {
+                            sh 'docker compose up --build -d app mongodb nginx'
+                            sh 'docker compose run --rm test-runner'
+                        }
+                    } finally {
+                        sh 'docker compose down -v'
+                    }
+                }
+            }
+        }
+
+        stage('Generate Tag') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'git-credentials',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )]) {
+                        sh 'git fetch --tags https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/LaxForce/phonebook-app.git'
+                        def latestTag = sh(script: "git tag | grep '^[0-9]\\.[0-9]\\.[0-9]\$' | sort -V | tail -n1 || echo '1.0.0'", returnStdout: true).trim()
+                        if (latestTag == "") {
+                            env.DOCKER_TAG = "1.0.0"
+                        } else {
+                            def parts = latestTag.split('\\.')
+                            env.DOCKER_TAG = "${parts[0]}.${parts[1]}.${(parts[2] as int) + 1}"
+                        }
+                        sh """
+                            docker tag ${IMAGE_NAME}:temp ${IMAGE_NAME}:${env.DOCKER_TAG}
+                            docker tag ${IMAGE_NAME}:temp ${IMAGE_NAME}:latest
+                        """
+                    }
+                }
+            }
+        }
+
+        stage('Publish to ECR') {
+            when {
+                branch 'main'
+            }
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'aws-ecr-credentials',
+                        usernameVariable: 'AWS_ACCESS_KEY_ID',
+                        passwordVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    usernamePassword(
+                        credentialsId: 'git-credentials',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )
+                ]) {
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com
+                        aws ecr describe-repositories --repository-names ${ECR_REPO} --region ${AWS_REGION} || \
+                        aws ecr create-repository --repository-name ${ECR_REPO} --region ${AWS_REGION}
+                        docker push ${IMAGE_NAME}:${env.DOCKER_TAG}
+                        docker push ${IMAGE_NAME}:latest
+                        git tag ${env.DOCKER_TAG}
+                        git push https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/LaxForce/phonebook-app.git ${env.DOCKER_TAG}
+                    """
+                }
+            }
+        }
+
+        stage('Update Gitops Configuration') {
+            when {
+                branch 'main'
+            }
+            steps {
+                script {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'git-credentials',
+                        usernameVariable: 'GIT_USERNAME',
+                        passwordVariable: 'GIT_PASSWORD'
+                    )]) {
+                        sh """
+                            git clone https://${GIT_USERNAME}:${GIT_PASSWORD}@github.com/LaxForce/gitops-config.git
+                            cd gitops-config/applications/apps/phonebook
+                            
+                            # Update image tag in values-prod.yaml
+                            sed -i 's/tag: .*/tag: "${env.DOCKER_TAG}"/' values-prod.yaml
+                            
+                            git config user.email "jenkins@example.com"
+                            git config user.name "Jenkins"
+                            git add values-prod.yaml
+                            git commit -m "Update phonebook image tag to ${env.DOCKER_TAG}"
+                            git push origin main
+                        """
+                    }
+                }
+            }
+        }
+    }
+
+    post {
+        always {
+            sh 'docker compose down -v || true'
+            sh 'docker system prune -f || true'
+            sh 'rm -f .env || true'
+            cleanWs()
+        }
+    }
+}

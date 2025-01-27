@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: elasticsearch
+spec:
+  destination:
+    namespace: argocd
+  source:
+    repoURL: 'https://helm.elastic.co'
+    targetRevision: 7.17.3
+    chart: elasticsearch
+    helm:
+      values: |
+        resources:
+          requests:
+            cpu: "150m"
+            memory: "256Mi"
+        master:
+            masterOnly: false
+            replicaCount: 1
+  destination:
+    namespace: logging
+    server: 'https://kubernetes.default.svc'
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

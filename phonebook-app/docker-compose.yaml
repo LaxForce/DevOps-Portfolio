@@ -1,0 +1,98 @@
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - app
+    networks:
+      - frontend-net
+      
+      
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    expose:
+      - "5000"
+    env_file:
+      - .env
+    environment:
+      - MONGO_URI=mongodb://${MONGO_USERNAME}:${MONGO_PASSWORD}@mongodb:27017/${MONGO_DATABASE}?authSource=${MONGO_DATABASE}
+    #volumes:
+    #  - .:/app
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    command: ["python", "-m", "flask", "run", "--host=0.0.0.0"]
+    networks:
+      - frontend-net
+      - backend-net
+
+  mongodb:
+    #image: mongo:8.0.4
+    build:
+      context: .
+      dockerfile: Dockerfile.mongodb
+    env_file:
+      - .env
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE}
+      - MONGO_USERNAME=${MONGO_USERNAME}
+      - MONGO_PASSWORD=${MONGO_PASSWORD}
+    command: ["mongod", "--auth", "--logpath", "/proc/1/fd/1", "--logappend"]
+    volumes:
+      - mongodb_data:/data/db
+      #- ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    expose:
+      - "27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "'db.runCommand(\"ping\").ok'", "--quiet"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+    networks:
+      - backend-net
+
+  # E2E test runner
+  test-runner:
+    build:
+      context: .
+      target: test
+    depends_on:
+      - app
+      - mongodb
+      - nginx
+    networks:
+      - frontend-net
+
+    environment:
+      - APP_HOST=nginx
+    command: ["python", "-m", "pytest", "tests/test_e2e.py", "-v"]  
+
+
+    # Unit test runner
+  unit-test-runner:
+    build:
+      context: .
+      target: test
+    networks:
+      - frontend-net
+    environment:
+      - MONGO_URI=mongodb://dummy:dummy@dummy:27017/dummy
+    command: ["python", "-m", "pytest", "tests/test_app.py", "--maxfail=3", "--disable-warnings", "-v"]
+
+networks:
+  frontend-net:
+    driver: bridge
+    
+  backend-net:
+    driver: bridge
+   
+volumes:
+  mongodb_data:

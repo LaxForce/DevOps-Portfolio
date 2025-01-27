@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phonebook Application</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --danger-color: #e25555;
+            --bg-color: #f5f5f5;
+            --card-bg: white;
+            --text-color: #333;
+            --text-secondary: #666;
+            --border-color: #eee;
+            --input-border: #ddd;
+        }
+
+        [data-theme="dark"] {
+            --primary-color: #5b9be6;
+            --danger-color: #e26767;
+            --bg-color: #1a1a1a;
+            --card-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --text-secondary: #b0b0b0;
+            --border-color: #404040;
+            --input-border: #404040;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        .contact-form, .contacts-list {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--input-border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 14px;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+        }
+
+        .form-group textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .contact-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+
+        .contact-card:hover {
+            transform: translateY(-2px);
+        }
+
+        .contact-card.updated {
+            animation: highlight 2s;
+        }
+
+        @keyframes highlight {
+            from {
+                background-color: var(--primary-color);
+                opacity: 0.3;
+            }
+            to {
+                background-color: var(--card-bg);
+                opacity: 1;
+            }
+        }
+
+        .contact-info {
+            margin-bottom: 10px;
+        }
+
+        .contact-name {
+            font-size: 18px;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin: 0;
+        }
+
+        .contact-details {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin: 5px 0;
+        }
+
+        .contact-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .delete-btn {
+            background-color: var(--danger-color);
+        }
+
+        .notes-btn {
+            background-color: #28a745;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: var(--card-bg);
+            color: var(--text-color);
+            margin: 10% auto;
+            padding: 20px;
+            width: 50%;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .close {
+            position: absolute;
+            right: 15px;
+            top: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: var(--text-secondary);
+        }
+
+        .close:hover {
+            color: var(--text-color);
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .modal-content {
+                width: 90%;
+                margin: 20% auto;
+            }
+        }
+
+        .theme-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            border-radius: 50%;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .modal-content {
+                width: 90%;
+                margin: 20% auto;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <button class="theme-toggle" id="themeToggle">
+        🌓
+    </button>
+
+    <h1>Phonebook</h1>
+    
+    <div class="container">
+        <div class="contact-form">
+            <h2>Add Contact</h2>
+            <form id="contactForm">
+                <div class="form-group">
+                    <label for="name">Name:</label>
+                    <input type="text" id="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone:</label>
+                    <input type="tel" id="phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="notes">Notes:</label>
+                    <textarea id="notes"></textarea>
+                </div>
+                <button type="submit">Save Contact</button>
+            </form>
+        </div>
+
+        <div class="contacts-list">
+            <h2>Contacts</h2>
+            <div id="contacts">
+                <!-- Contacts will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for notes -->
+    <div id="notesModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Contact Notes</h2>
+            <div id="modalContent"></div>
+        </div>
+    </div>
+
+    <script>
+         // NEW: Theme toggle functionality
+         const themeToggle = document.getElementById('themeToggle');
+        
+        // Check for saved theme preference or default to 'light'
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+
+        themeToggle.onclick = function() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+        }
+
+        let currentlyEditing = null;
+        const modal = document.getElementById('notesModal');
+        const closeBtn = document.querySelector('.close');
+
+        closeBtn.onclick = function() {
+            modal.style.display = "none";
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = "none";
+            }
+        }
+
+        function showNotes(contact) {
+            const modalContent = document.getElementById('modalContent');
+            modalContent.innerHTML = `
+                <h3>${contact.name}</h3>
+                <p>${contact.notes || 'No notes available'}</p>
+                <div class="form-group">
+                    <label for="editNotes">Edit Notes:</label>
+                    <textarea id="editNotes">${contact.notes || ''}</textarea>
+                </div>
+                <button onclick="saveNotes('${contact._id.$oid}')">Save Notes</button>
+            `;
+            modal.style.display = "block";
+        }
+
+        async function saveNotes(id) {
+            const newNotes = document.getElementById('editNotes').value;
+            try {
+                const response = await fetch(`/contacts/${id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ notes: newNotes })
+                });
+                if (!response.ok) throw new Error('Failed to update notes');
+                modal.style.display = "none";
+                loadContacts();
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message);
+            }
+        }
+
+        async function loadContacts() {
+            try {
+                const response = await fetch('/contacts');
+                const contacts = await response.json();
+                const contactsDiv = document.getElementById('contacts');
+                contactsDiv.innerHTML = '';
+                contacts.forEach(contact => {
+                    const div = document.createElement('div');
+                    div.className = 'contact-card';
+                    if (contact._id.$oid === currentlyEditing) {
+                        div.classList.add('updated');
+                    }
+                    div.innerHTML = `
+                        <div class="contact-info">
+                            <h3 class="contact-name">${contact.name}</h3>
+                            <p class="contact-details">📱 ${contact.phone}</p>
+                            <p class="contact-details">✉️ ${contact.email}</p>
+                        </div>
+                        <div class="contact-actions">
+                            <button onclick='editContact(${JSON.stringify(contact).replace(/'/g, "&apos;")})'>Edit</button>
+                            <button class="notes-btn" onclick='showNotes(${JSON.stringify(contact).replace(/'/g, "&apos;")})'>Notes</button>
+                            <button class="delete-btn" onclick="deleteContact('${contact._id.$oid}')">Delete</button>
+                        </div>
+                    `;
+                    contactsDiv.appendChild(div);
+                });
+            } catch (error) {
+                console.error('Error:', error);
+            }
+        }
+
+        function editContact(contact) {
+            console.log('Contact being edited:', contact);
+            console.log('Contact ID:', contact._id.$oid);
+            currentlyEditing = contact._id.$oid; // Set the current contact being edited
+            document.getElementById('name').value = contact.name;
+            document.getElementById('phone').value = contact.phone;
+            document.getElementById('email').value = contact.email;
+            document.getElementById('notes').value = contact.notes || '';
+            document.querySelector('button[type="submit"]').textContent = 'Update Contact'; // Update button text
+        }
+
+
+        async function deleteContact(id) {
+            if (confirm('Are you sure you want to delete this contact?')) {
+                try {
+                    const response = await fetch(`/contacts/${id}`, { method: 'DELETE' });
+                    if (!response.ok) throw new Error('Failed to delete contact');
+                    loadContacts();
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert(error.message);
+                }
+            }
+        }
+
+        document.getElementById('contactForm').onsubmit = async function (e) {
+            e.preventDefault();
+            
+            const contact = {
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                notes: document.getElementById('notes').value
+            };
+
+            const method = currentlyEditing ? 'PUT' : 'POST';
+            const url = currentlyEditing ? `/contacts/${currentlyEditing}` : '/contacts';
+
+            try {
+                const response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(contact)
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || 'Failed to save contact');
+                }
+
+                document.getElementById('contactForm').reset();
+                currentlyEditing = null;
+                document.querySelector('button[type="submit"]').textContent = 'Save Contact';
+                loadContacts();
+            } catch (error) {
+                console.error('Error:', error);
+                alert(error.message);
+            }
+        };
+
+        window.onload = loadContacts;
+    </script>
+</body>
+</html>

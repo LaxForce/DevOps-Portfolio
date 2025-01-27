@@ -1,0 +1,17 @@
+{{- if and .Values.metrics.enabled .Values.metrics.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "phonebook.name" . }}
+  labels:
+    {{- include "phonebook.labels" . | nindent 4 }}
+    app.kubernetes.io/instance: kube-prometheus-stack
+spec:
+  selector:
+    matchLabels:
+      {{- include "phonebook.labels" . | nindent 6 }}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+{{- end }}
