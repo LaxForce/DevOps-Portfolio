@@ -20,11 +20,10 @@ This project implements a full-stack phone book application with a focus on clou
 
 ```
 phonebook-project/
-├── application/        # Phone book application code
-├── infrastructure/     # Terraform IaC configurations
+├── phonebook-app/        # Phone book application code
+├── infra/     # Terraform IaC configurations
 ├── gitops-config/     # Argo CD and Kubernetes configurations
-├── diagrams/          # Architecture and flow diagrams
-└── docs/             # Additional documentation
+└── Images/            # Architecture and flow diagrams, as well as general images
 ```
 
 ## Key Features
