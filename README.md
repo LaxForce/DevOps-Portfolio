@@ -79,7 +79,7 @@ phonebook-project/
 ## Architecture
 
 ### 3-tier Application
-![Three-Tier](Images/3-tier-arachitecture.png)
+![Three-Tier](Images/3-tier-architecture.png)
 
 ### CI/CD Flow
 ![CI/CD Flow](Images/CI-Diagram.png)
